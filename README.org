@@ -1,0 +1,88 @@
+#+STARTUP: overview
+#+TITLE: preparing US tax forms for trading in Emacs
+#+AUTHOR: Oleg Shalaev
+#+EMAIL:  oleg@chalaev.com
+
+* Disclaimer
+There is no warranty of any kind – use this software at your own risk, see [[file:LICENSE][the license]].
+
+* Description and motivation
+Reporting profit or loss to [[https://www.irs.gov/][IRS]] means filling the form [[https://www.irs.gov/forms-pubs/about-form-8949][8949]].
+
+I prefer filling it myself (avoiding online services) because
+- of addiction fear (it is probably hard to change the online service for the next year), and
+- online services are already expensive, and may become even more expensive once the customer is hooked.
+
+[[https://orgmode.org][Emacs org mode]] (instead of MS Excel) is used to process transaction tables and fill the forms.
+I try to minimize the profit for the current year by properly marrying acquisition and sales' dates.
+
+* Software environment and prerequisites
+This software was tested on Debian Linux.
+
+(At least) the following software is needed:
+- emacs
+- GNU make
+- pdftk + csplit
+
+For quick start, let us proceed with examples below.
+
+* Example assets: =TEST-0= and =TEST-1=
+There are 2 assets used for testing (can be erased if testing is no longer needed): [[file:assets/TEST-0][assets/TEST-0]] and [[file:assets/TEST-1][assets/TEST-1]].
+
+The directory [[file:assets][assets/]] contains sub-directories who's names are assets' abbreviations you have traded during the year.
+Every sub-directory inside [[file:assets][assets/]] has similar structure:
+before the calculation it contains file [[file:assets/TEST-0/000.org][000.org]].
+
+Apart of (insignificant for calculations) explanatory text,
+this file contains 2 tables: [[file:assets/TEST-0/000.org::buy][buy]] and [[file:assets/TEST-0/000.org::sell][sell]].
+Their columns' meaning is explained in [[file:assets/TEST-0/000.org][the file]].
+
+Launch the calculation:
+#+begin_src shell
+./iterate.sh TEST-0
+#+end_src
+The code will gradually "marry" sales and purchases creating files =001.org=, =002.org=, ... for every asset.
+
+The calculation will proceed until the next file is the same as the previous one;
+for =TEST-0=, the last 2 files =003.org= and =004.org= will be identical, so the file =003.org=
+can be considered as the "final" for the year 2025.
+The user is supposed to carefully review the content of this "final" file and copy it into [[file:assets/TEST-0/2025.org][2025.org]].
+
+* Processing real assets
+Suppose one of the assets you have traded is =BTC=.
+1. Create directory =assets/BTC/= and copy [[file:assets/TEST-0/000.org][assets/TEST-0/000.org]] to =assets/BTC/000.org=.
+2. (Optionally) remove the explanations.
+3. You trade agent should provide you with transaction data in the =CSV= format. Converting  =CSV= to org table format is straightforward.
+   Replace the tables' content with your transaction data.
+7. Run =./iterate.sh BTC= (or whatever you traded).
+8. Open the last org file =assets/BTC/00X.org= in =assets/BTC/=: make sure the bottom lines are the same as in =BTC/000.org=.
+9. Some "acquired" dates in the sales table in =assets/BTC/00X.org= might start with exclamation mark. For them the code was unable to find the matching buy amount.
+   One of the reasons why a date might be incorrect is time zone difference.
+   If the discrepancy amount is significant, adjust =assets/BTC/000.org=, then =make clean asset=BTC=, and run the code again.
+
+Repeat the above steps for every asset you traded.
+
+Finally:
+- make sure the bottom lines in the final tables are the same as in the original files,
+- make manual adjustments if needed, and
+- try next section to fill the 8949 tax form.
+
+* Filling the IRS form 8949
+This is *not fully automated* in 2026.
+
+This part of the code uses [[file:clean-8949.pdf][clean-8949.pdf]] and
+"final" files ([[file:assets/TEST-0/2025.org][2025.org]] for the tax year 2025)
+for each asset
+to generate the PDF file to be submitted to IRS.
+
+*Replace obsolete 2025-form [[file:clean-8949.pdf][clean-8949.pdf]] with the IRS form for the current tax year!*
+
+Update [[file:f8949.org][f8949.org]] following the instructions therein, then
+save your name and SSN in [[file:clean-8949.pdf][clean-8949.pdf]], and
+#+begin_src 
+make -f f8949.mk
+#+end_src
+This will produce =generated/f8949.pdf=.
+
+* License
+This code is released under [[file:LICENSE][GPL 3.0 license]].

@@ -1,0 +1,85 @@
+#+TITLE: TEST-0 asset used for testing purposes
+#+price-per-unit: 100000
+
+- "price-per-unit" header serves for rounding and should be roughly set to maximal price (in USD) per asset unit; for example, in 2025 BTC reached $120,000 per unit so it is safe to set "price-per-unit: 100000".
+- "USD" column is the dollar trade amount.
+- Columns' order is arbitrary.
+- "date" column is the trade date; trades occurred within the same day are considered indistinguishable, and their rows can be merged.
+- Every sell row is expected to meet ("marry") one or more buy rows and vice versa
+- In this test file, only compulsory columns are shown other recognized column names are: "fee", "spent".
+- The code tries to assign any empty "acquired" values in the sell form.
+
+* Buy
+Include any non-"married" buying transactions for the previous year(s).
+
+#+name: buy
+|----+------------+------------+----------|
+|  N |       date |        qty |      USD |
+|----+------------+------------+----------|
+|  1 | 2025-01-25 | 0.01419459 |  1472.68 |
+|  2 | 2025-01-25 |   0.014073 |  1473.95 |
+|  3 | 2025-01-25 |   0.014025 |  1494.19 |
+|  4 | 2025-01-27 | 0.02502851 |  2550.80 |
+|  5 | 2025-01-27 |  0.0144467 |  1488.44 |
+|  6 | 2025-01-27 |  0.0144467 |  1488.44 |
+|  7 | 2025-01-27 |   0.014475 |  1488.44 |
+|  8 | 2025-01-28 |   0.014445 |  1507.92 |
+|  9 | 2025-02-01 |  0.0147926 |  1467.16 |
+| 10 | 2025-02-04 |   0.011286 |  1149.35 |
+| 11 | 2025-11-14 | 0.05512637 |  5309.55 |
+| 12 | 2025-11-14 | 9.71218e-3 |   940.76 |
+| 13 | 2025-11-14 | 0.03979396 |  3850.68 |
+| 14 | 2025-11-14 | 0.01014265 |   976.65 |
+| 15 | 2025-11-14 |   5.324e-5 |     5.13 |
+| 16 | 2025-11-14 | 1.44996e-3 |   139.62 |
+| 17 | 2025-11-14 | 7.56168e-3 |   728.13 |
+|----+------------+------------+----------|
+|    |            | 0.27505314 | 27531.89 |
+#+TBLFM: $1=@#-1::$4=round($4*100)/100;%.2f::@>$3=vsum(@II..@III)::@>$4=vsum(@II..@III)
+
+* Sell
+1. The code will "marry" purchases and sales providing a purchase date (in "acquired" column) for every sale.
+   This "acquired" column is (at least partially) specified by the trader to minimize the profit (taxes).
+   We put the rows with the empty "acquired" column at the bottom of the table.
+2. Include any non-"married" sales transactions for the previous year(s).
+3. Feel free to add extra columns, for example:
+   - unique transaction ID
+   - "gain0" – (not to be confused with "gain" column added by the code) calculated by the trader to be compared with the "gain" calculated by this code.
+
+#+name: sell
+|----+------------+------------+----------+------------|
+|  N |       date |        qty |      USD |   acquired |
+|----+------------+------------+----------+------------|
+|  1 | 2025-01-27 | 0.02502851 |  2539.53 | 2025-01-25 |
+|  2 | 2025-01-27 | 0.00140956 |   143.02 | 2025-01-25 |
+|  3 | 2025-01-27 | 0.00242293 |   245.84 | 2025-01-25 |
+|  4 | 2025-01-27 | 0.01444650 |  1482.79 | 2025-01-25 |
+|  5 | 2025-01-29 | 0.01444500 |  1505.60 | 2025-01-27 |
+|  6 | 2025-01-29 | 0.01419459 |  1482.37 | 2025-01-27 |
+|  7 | 2025-01-30 | 0.01402534 |  1488.82 | 2025-01-27 |
+|  8 | 2025-02-04 | 0.01128600 |  1121.20 | 2025-01-27 |
+|  9 | 2025-02-21 | 0.02022924 |  2001.99 | 2025-01-27 |
+| 10 | 2025-03-12 | 0.01138940 |   938.23 | 2025-01-28 |
+| 11 | 2025-03-12 | 0.00957214 |   788.53 | 2025-02-01 |
+| 12 | 2025-03-12 | 0.00684638 |   563.99 | 2025-02-04 |
+| 13 | 2025-03-12 | 0.00142901 |   117.72 | 2025-01-28 |
+| 14 | 2025-03-12 | 0.00142901 |   117.72 | 2025-01-28 |
+| 15 | 2025-03-12 | 0.00142769 |   117.61 | 2025-02-04 |
+| 16 | 2025-03-12 | 0.00142769 |   117.61 | 2025-02-04 |
+| 17 | 2025-03-12 | 0.00012917 |    10.64 | 2025-02-04 |
+| 18 | 2025-03-12 | 0.00001302 |     1.07 | 2025-02-04 |
+| 19 | 2025-11-14 | 0.00147176 |   140.97 | 2025-11-14 |
+| 20 | 2025-11-14 | 0.00114424 |   109.57 | 2025-11-14 |
+| 21 | 2025-11-14 | 0.00146454 |   139.86 | 2025-11-14 |
+| 22 | 2025-11-14 | 0.00699365 |   669.69 | 2025-11-14 |
+| 23 | 2025-11-14 | 0.00010094 |     9.67 | 2025-11-14 |
+| 24 | 2025-11-14 | 0.01245974 |  1189.86 | 2025-11-14 |
+| 25 | 2025-11-14 | 0.00082568 |    78.85 | 2025-11-14 |
+| 26 | 2025-11-14 | 0.00000148 |     0.14 | 2025-02-01 |
+| 27 | 2025-12-18 | 0.00433581 |   372.08 | 2025-11-14 |
+| 28 | 2025-12-18 | 0.01044808 |   896.35 | 2025-11-14 |
+| 29 | 2025-12-18 | 0.02002993 |  1718.39 | 2025-11-14 |
+| 30 | 2025-12-18 | 0.06431846 |  5519.47 | 2025-11-14 |
+|----+------------+------------+----------+------------|
+|    |            | 0.27474549 | 25629.18 |            |
+#+TBLFM: $1=@#-1::$4=round($4*100)/100;%.2f::@>$3=vsum(@II..@III)::@>@>$4=vsum(@II..@III)

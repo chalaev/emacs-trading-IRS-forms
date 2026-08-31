@@ -1,0 +1,96 @@
+This file helps to fill the IRS 8949 PDF-form.
+
+Evaluate this block to be able to update statistics table below:
+#+begin_src emacs-lisp
+(defun r/tabCN(FN table-name line-spec col-name)
+(with-current-buffer(find-file-noselect FN)
+  (goto-table table-name) (org-table-goto-line 1)
+  (when-let((headers(current-table-row))
+	    (j(cl-position col-name  headers :test #'string-equal))
+	    (r(org-table-get-remote-range table-name (format "@%s$%d" line-spec (1+ j)))))
+      (if (string-match "^(\\(.*\\))$" r) (match-string 1 r) r)))); ← returning result inside parentheses is a well-known bug which we treat here
+;; example →
+(r/tabCN "assets/TEST-0/2025.org" "sell" ">" "qty")
+#+end_src
+
+#+RESULTS:
+: 0.27474475
+
+
+← returning result inside parentheses is a well-known bug which we treat here.
+
+The following table displays statistics for all of the traded assets.
+Replace 2025 with the current tax year, and TEST-0, TEST-1 with your real asset abbreviations:
+|--------+-----+------------+----------+------------+----------|
+| asset  |   N |        qty |     rate | USD volume |     gain |
+|--------+-----+------------+----------+------------+----------|
+| TEST-0 |     | 0.27474475 | 9.33e+04 |   25629.18 | -1875.26 |
+| TEST-1 | 641 |  4439.4842 |      114 |  507487.66 |   802.27 |
+|--------+-----+------------+----------+------------+----------|
+|        | 641 |            |          |  533116.84 | -1072.99 |
+|--------+-----+------------+----------+------------+----------|
+#+TBLFM: @>$2=vsum(@II..@III)::@>$6=vsum(@II..@III)::@>$5=vsum(@II..@III)::@2$2='(r/tabCN "assets/TEST-0/2025.org" "sell" (string ?>) "N")::@2$3='(r/tabCN "assets/TEST-0/2025.org" "sell" (string ?>) "qty")::@2$4='(r/tabCN "assets/TEST-0/2025.org" "sell" (string ?>) "rate")::@2$5='(r/tabCN "assets/TEST-0/2025.org" "sell" (string ?>) "USD")::@2$6='(r/tabCN "assets/TEST-0/2025.org" "sell" (string ?>) "gain")::@3$2='(r/tabCN "assets/TEST-1/2025.org" "sell" (string ?>) "N")::@3$3='(r/tabCN "assets/TEST-1/2025.org" "sell" (string ?>) "qty")::@3$4='(r/tabCN "assets/TEST-1/2025.org" "sell" (string ?>) "rate")::@3$5='(r/tabCN "assets/TEST-1/2025.org" "sell" (string ?>) "USD")::@3$6='(r/tabCN "assets/TEST-1/2025.org" "sell" (string ?>) "gain")
+← editable using =C-c '=
+
+In the following code block, replace
+- 2025 with the current tax year, and
+- ="TEST-0" "TEST-1"= with the list of your assets:
+#+begin_src emacs-lisp :tangle generated/f8949.el
+(defun non-empty(str)
+  (and str(when(< 0 (length str)) str)))
+(defun USD-to-string(amount)
+	      (number-to-string(/(round(* 100 amount)) 100.0)))
+(defun r/table(FN table-name)
+(with-current-buffer(find-file-noselect FN)
+  (goto-table table-name) (org-table-goto-line 1)
+(cl-loop for i from 1 while (org-table-goto-line i)
+	 collect (current-table-row))))
+
+(with-temp-file(format "generated/f8949.fdf")
+(let((line-count 0) (totalBought 0) (totalSold 0) (totalGain 0) (cr "
+"))
+(dolist(asset '("TEST-0" "TEST-1"))
+(let((table(r/table(concat "assets/" asset "/2025.org") "sell")))
+  (cl-flet((i(column-name) (cl-position column-name (car table) :test #'string-equal)))
+(dolist(this-row (cdr table))
+(cl-flet((c(column-name) (when(i column-name)(nth(i column-name)this-row))))
+(when(non-empty (c "date"))
+(let((form-rowN(1+(mod line-count 11)))) (cl-incf line-count)
+(insert(format "<< /T(topmostSubform[0].Page1[0].Table_Line1_Part1[0].Row%d[0].f1_%02d[0])/V(%s     %s %s) >>%s" form-rowN (+ 3(* 8 (1- form-rowN))) cr (c "qty") asset cr))
+(insert(format "<< /T(topmostSubform[0].Page1[0].Table_Line1_Part1[0].Row%d[0].f1_%02d[0])/V(%s) >>%s" form-rowN (+ 4(* 8 (1- form-rowN))) (format-time "%m/%d/%Y" (encode-date(c "acquired"))) cr))
+(insert(format "<< /T(topmostSubform[0].Page1[0].Table_Line1_Part1[0].Row%d[0].f1_%02d[0])/V(%s) >>%s" form-rowN (+ 5(* 8 (1- form-rowN))) (format-time "%m/%d/%Y" (encode-date (c "date"))) cr))
+(insert(format "<< /T(topmostSubform[0].Page1[0].Table_Line1_Part1[0].Row%d[0].f1_%02d[0])/V(%s) >>%s" form-rowN (+ 6(* 8 (1- form-rowN))) (c "USD") cr))
+(cl-incf totalSold(string-to-number(c "USD")))
+(let((bought(-(string-to-number(c "USD")) (string-to-number(c "gain")))))
+(insert(format "<< /T(topmostSubform[0].Page1[0].Table_Line1_Part1[0].Row%d[0].f1_%02d[0])/V(%s) >>%s" form-rowN (+ 7(* 8 (1- form-rowN))) (USD-to-string bought) cr)) (cl-incf totalBought bought))
+(insert(format (concat "<< /T(topmostSubform[0].Page1[0].Table_Line1_Part1[0].Row%d[0].f1_%02d[0])/V(%s) >>" cr) form-rowN (+ 10(* 8 (1- form-rowN))) (c "gain")))
+(cl-incf totalGain(string-to-number(c "gain")))
+(if(not(= 11 form-rowN)) (insert cr)
+(insert "<< /T(topmostSubform[0].Page1[0].c1_1[4])/V(5) >>")
+(insert(format "<< /T(topmostSubform[0].Page1[0].f1_91[0])/V(%s) >>%s" (USD-to-string totalSold) cr))
+(insert(format "<< /T(topmostSubform[0].Page1[0].f1_92[0])/V(%s) >>%s" (USD-to-string totalBought) cr))
+(insert(format "<< /T(topmostSubform[0].Page1[0].f1_95[0])/V(%s) >>%s" (USD-to-string totalGain) cr))
+(setf
+ totalSold 0
+ totalBought 0
+ totalGain 0)
+(insert(concat cr "-=page-separator=-" cr)))))))
+(insert "<< /T(topmostSubform[0].Page1[0].c1_1[4])/V(5) >>")
+(insert(format "<< /T(topmostSubform[0].Page1[0].f1_91[0])/V(%s) >>" (USD-to-string totalSold)))
+(insert(format "<< /T(topmostSubform[0].Page1[0].f1_92[0])/V(%s) >>" (USD-to-string totalBought)))
+(insert(format "<< /T(topmostSubform[0].Page1[0].f1_95[0])/V(%s) >>" (USD-to-string totalGain)))
+)))))
+#+end_src
+
+#+begin_src fdf :tangle generated/header.fdf
+%FDF-1.2
+1 0 obj<</FDF<< /Fields[
+#+end_src
+
+#+begin_src fdf :tangle generated/footer.fdf
+] >> >>
+endobj
+trailer
+<</Root 1 0 R>>
+%%EOF
+#+end_src

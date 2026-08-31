@@ -1,0 +1,89 @@
+emacs-trading-IRS-forms> make
+
+using default asset=TEST-0
+emacs -Q --batch -l shalaev.el -l generated/iterate-tables.el --eval '(iterate-tables-for "/home/shalaev/github/emacs-trading-IRS-forms/assets" "TEST-0")'
+:info 00:12:54 reading tables from /home/shalaev/github/emacs-trading-IRS-forms/assets/TEST-0/000.org
+The formulas in #+TBLFM have been updated
+The formulas in #+TBLFM have been updated
+The formulas in #+TBLFM have been updated
+The formulas in #+TBLFM have been updated
+The formulas in #+TBLFM have been updated
+The formulas in #+TBLFM have been updated
+The formulas in #+TBLFM have been updated
+:info 00:12:55 Merging rows of buy table
+:info 00:12:56 Merging rows of sell table
+:info 00:12:56 sell table> row 2, N=1, date= 2025-01-27
+:info 00:12:56 sell table> row 3, N=2, date= 2025-01-27
+:info 00:12:56 sell table> row 4, N=3, date= 2025-01-27
+:info 00:12:56 sell table> row 5, N=4, date= 2025-01-27
+:info 00:12:56 sell table> row 6, N=5, date= 2025-01-29
+:info 00:12:56 sell table> row 7, N=6, date= 2025-01-29
+:info 00:12:57 sell table> row 8, N=7, date= 2025-01-30
+:info 00:12:57 sell table> row 9, N=8, date= 2025-02-04
+:info 00:12:57 sell table> row 10, N=9, date= 2025-02-21
+:info 00:12:57 sell table> row 11, N=10, date= 2025-03-12
+:info 00:12:57 sell table> row 12, N=11, date= 2025-03-12
+:info 00:12:57 sell table> row 13, N=12, date= 2025-03-12
+:info 00:12:57 sell table> row 14, N=13, date= 2025-03-12
+:info 00:12:57 sell table> row 15, N=14, date= 2025-03-12
+:info 00:12:57 sell table> row 16, N=15, date= 2025-03-12
+:info 00:12:57 sell table> row 17, N=16, date= 2025-03-12
+:info 00:12:57 sell table> row 18, N=17, date= 2025-03-12
+:info 00:12:57 sell table> row 19, N=18, date= 2025-03-12
+:info 00:12:57 sell table> row 20, N=19, date= 2025-11-14
+:info 00:12:57 sell table> row 21, N=20, date= 2025-11-14
+:info 00:12:58 sell table> row 22, N=21, date= 2025-11-14
+:info 00:12:58 sell table> row 23, N=22, date= 2025-11-14
+:info 00:12:58 sell table> row 24, N=23, date= 2025-11-14
+:info 00:12:58 sell table> row 25, N=24, date= 2025-11-14
+:info 00:12:58 sell table> row 26, N=25, date= 2025-11-14
+:info 00:12:58 sell table> row 27, N=26, date= 2025-11-14
+:info 00:12:58 sell table> row 28, N=27, date= 2025-12-18
+:info 00:12:58 sell table> row 29, N=28, date= 2025-12-18
+:info 00:12:58 sell table> row 30, N=29, date= 2025-12-18
+:info 00:12:58 sell table> row 31, N=30, date= 2025-12-18
+:debug 00:12:59 flushing comments before quiting emacs
+
+
+make asset=TEST-1
+emacs -Q --batch -l shalaev.el -l generated/iterate-tables.el --eval '(iterate-tables-for "/home/shalaev/github/emacs-trading-IRS-forms/assets" "TEST-1")'
+:info 00:13:34 reading tables from /home/shalaev/github/emacs-trading-IRS-forms/assets/TEST-1/000.org
+The formulas in #+TBLFM have been updated
+The formulas in #+TBLFM have been updated
+The formulas in #+TBLFM have been updated
+The formulas in #+TBLFM have been updated
+The formulas in #+TBLFM have been updated
+The formulas in #+TBLFM have been updated
+The formulas in #+TBLFM have been updated
+:info 00:15:09 Merging rows of buy table
+:info 00:15:36 Merging rows of sell table
+:info 00:22:54 sell table> row 2, N=1, date= 2025-01-01
+:info 00:23:16 sell table> row 3, N=2, date= 2025-01-01
+:info 00:23:16 sell table> row 4, N=3, date= 2025-01-01
+:info 00:23:17 sell table> row 5, N=4, date= 2025-01-01
+:info 00:23:17 sell table> row 6, N=5, date= 2025-01-01
+:info 00:23:18 sell table> row 7, N=6, date= 2025-01-01
+....
+:info 00:31:29 sell table> row 601, N=632, date= 2025-11-09
+:info 00:31:29 sell table> row 602, N=633, date= 2025-11-09
+:info 00:31:30 sell table> row 603, N=634, date= 2025-11-14
+:info 00:31:30 sell table> row 604, N=635, date= 2025-11-14
+:info 00:31:30 sell table> row 605, N=636, date= 2025-11-14
+:info 00:31:31 sell table> row 606, N=637, date= 2025-11-14
+:info 00:31:31 sell table> row 607, N=638, date= 2025-11-14
+:info 00:31:32 sell table> row 608, N=639, date= 2025-11-14
+:info 00:31:32 sell table> row 609, N=640, date= 2025-11-14
+Re-applying formulas to full table...(line 83)
+Re-applying formulas to full table...(line 166)
+Re-applying formulas to full table...(line 249)
+Re-applying formulas to full table...(line 333)
+Re-applying formulas to full table...(line 418)
+Re-applying formulas to full table...(line 504)
+Re-applying formulas to full table...(line 590)
+Re-applying formulas to 621 lines... done
+Re-applying formulas... done
+Finding sort keys...
+Sorting records...
+Reordering buffer...
+Reordering buffer... Done
+:debug 00:32:06 flushing comments before quiting emacs

@@ -1,0 +1,366 @@
+#+STARTUP: overview
+#+PROPERTY: header-args:emacs-lisp :padline no :mkdirp yes :tangle-mode (identity #o660) :tangle generated/iterate-tables.el
+
+* init
+#+begin_src emacs-lisp
+(defmacro deblog(var-name)
+  `(progn
+     (clog :debug ,(format "%s= %%s" var-name) ,var-name)
+     ,var-name))
+
+(defun replace-table-cell(tblname row col new-value)
+ (save-excursion (goto-table tblname)
+  (org-table-put row col new-value t)))
+
+(defun sort-table(table-name column-name sort-type)
+(when-let((i(cl-position column-name
+  (mapcar #'substring-no-properties (org-table-get-remote-range table-name "@1$1..@1$>"))
+  :test #'string-equal)))
+(goto-table table-name)
+(org-table-goto-line 2)
+(org-table-goto-column (1+ i) )
+(org-table-sort-lines nil sort-type)))
+
+(defun listify(obj)
+(or
+  (and (listp obj) obj)
+  (list obj)))
+
+(defun USD-to-string(amount)
+  (format "%.2f" (/(round(* 100 amount)) 100.0)))
+#+end_src
+
+* iterate-tables-for
+** Load input file + local functions
+#+begin_src emacs-lisp :padline yes
+(defun iterate-tables-for(abs-dir-name asset-name)
+(let((DN(format "%s%s/" (file-name-as-directory abs-dir-name) asset-name))
+     (additive-col-names '("USD" "fee" "spent0" "spent" "gain0" "gain" "sold"))
+     (asset-col-names (list "qty" "qtyLeft"))
+     (FN0 "") (FN1 "")
+     (final-sell-remain -1))
+(ifn-let((latest-table-FN(car(last(directory-files DN t "^[0-9][0-9][0-9]\.org$"))))) (error (format "No table files found in %s" DN))
+(if(not(string-match "/\\([0-9][0-9][0-9]\\)\.org$" latest-table-FN)) (error "refuse to create > 1000 .org files")
+(let((prev-FN(string-to-number(match-string 1 latest-table-FN))))
+(setf FN0(format "%s%03d.org" DN prev-FN))
+(clog :info "reading tables from %s" FN0)
+(with-temp-file(setf FN1(format "%s%03d.org" DN (1+ prev-FN)))
+(insert-file-contents latest-table-FN)
+(org-mode)
+(let*((price-per-unit (if-let((str-price(cadar (org-collect-keywords '("price-per-unit")))))
+			 (string-to-number str-price)
+			(clog :warning "add price header to the .org transcations' file")
+			  100000))
+      (asset-price (* 10 price-per-unit)); price in $.1 specifying the rounding precision (to be changed for non-USD currencies)
+      (inv-asset-price(/ 1.0 asset-price))
+      (Ndigits(max 0 (round(*(cdr(frexp asset-price)) (/(log 2) (log 10))))))
+      (asset-format(format "%%.%df" Ndigits)))
+#+end_src
+
+*** Adding mandatory columns unless they already exist
+#+begin_src emacs-lisp :padline yes
+(let((col-names(org-table-get-remote-range "buy" "@1$1..@1$>")))
+(goto-table "buy")
+(dolist(col-name '("qtyLeft" "pIDs" "rate"))
+(unless(member col-name col-names)
+(org-table-goto-line 1)
+(goto-char (line-end-position))
+(org-table-insert-column)
+(insert col-name))))
+
+(let((col-names(org-table-get-remote-range "sell" "@1$1..@1$>")))
+(goto-table "sell")
+(dolist(col-name '("qtyLeft" "pIDs" "rate" "gain" "acquired"))
+(unless(member col-name col-names)
+(org-table-goto-line 1)
+(goto-char (line-end-position))
+(org-table-insert-column)
+(insert col-name))))
+#+end_src
+
+#+begin_src emacs-lisp :padline yes
+(let((buyHeaders (mapcar #'substring-no-properties(org-table-get-remote-range  "buy" "@1$1..@1$>")))
+     (sellHeaders(mapcar #'substring-no-properties(org-table-get-remote-range "sell" "@1$1..@1$>")))
+     (allowed-col-names '("N" "qty" "ID" "date" "date0" "USD" "fee" "spent0" "spent" "gain0" "sold" "acquired" "gain" "qtyLeft" "pIDs" "rate"))
+     new-sell-rows)
+#+end_src
+
+Make sure input tables contain certain important columns:
+#+begin_src emacs-lisp
+(if(not(cl-loop for mandatory in '("qty" "N" "date" "USD")
+		always (or(and(member mandatory buyHeaders)
+			      (member mandatory sellHeaders))
+			  (clog :error "input tables lack important column %s" mandatory))))
+    (error "input tables lack important column(s)")
+#+end_src
+
+#+begin_src emacs-lisp
+(cl-labels((col(table-name col-num)
+	     (mapcar #'substring-no-properties
+		     (listify (org-table-get-remote-range
+		       table-name
+		       (format "@2$%d..@>>$%d" col-num col-num)))))
+#+end_src
+← in case org-table contains no 3rd line at the bottom, this range will include the last line.
+#+begin_src emacs-lisp
+	   (asset-round(amount)
+	     (* (round amount inv-asset-price) inv-asset-price))
+	   (asset-zero-p(amount)
+	     (< (* asset-price amount) 5))
+	   (asset-to-string(amount)
+	     (let((ar(asset-round amount)))
+	       (if(< 0 ar)
+		   (format asset-format (asset-round amount))
+		 "0")))
+	   (string-to-asset(str)
+	     (asset-round(string-to-number str)))
+	   (ib(column-name) (cl-position column-name   buyHeaders :test #'string-equal))
+	   (is(column-name) (cl-position column-name  sellHeaders :test #'string-equal))
+#+end_src
+
+Appending new TBLFM line to a table
+#+begin_src emacs-lisp
+	   (append-TBLFM-to(table-name)
+(goto-table table-name) (goto-char(org-table-end))
+(let((headers(org-table-get-remote-range table-name "@1$1..@1$>")))
+  (cl-flet((ii(column-name) (cl-position column-name headers :test #'string-equal)))
+(insert(concat (format "#+TBLFM: $%d=$%d/$%d;%%.3g::" (1+(ii "rate")) (1+(ii "USD")) (1+(ii "qty")))
+(str-join
+(cl-loop for dollar-colN in (cons "qty" (cons "qtyLeft" additive-col-names)) with i = -1
+	 when (setf i (ii dollar-colN)) collect (format "@>$%d=vsum(@2..@>>)" (1+ i)))
+"::")) "
+")
+(let((case-fold-search t))
+  (when(string-match "^#\\+tblfm:" (current-line)) (cut-line)))
+#+end_src
+← erasing old TBLFM, if any.
+#+begin_src emacs-lisp
+(goto-table table-name)
+(org-table-recalculate t))))
+#+end_src
+=(cl-labels...)= continues…
+
+*** cl-labels merge-rows
+Merging (same-date) rows in a table:
+#+begin_src emacs-lisp :padline yes
+(merge-rows(table-name)
+(let((processed-dates '()) (tableHeaders (org-table-get-remote-range table-name "@1$1..@1$>")))
+  (cl-flet((i(column-name) (cl-position column-name tableHeaders :test #'string-equal)))
+#+end_src
+Make sure that "qtyLeft" column is non-empty:
+#+begin_src emacs-lisp
+(cl-loop for this-rowN from 2 while (progn (goto-table table-name) (org-table-goto-line this-rowN))
+	 for this-row = (current-table-row) then (current-table-row) do
+  (cl-flet((c(column-name) (when(i column-name)(nth(i column-name)this-row))))
+    (when(non-empty(c "date"))
+	   (unless (non-empty(c "qtyLeft"))
+	     (replace-table-cell table-name this-rowN (1+(i "qtyLeft")) (c "qty"))))))
+#+end_src
+← After this the "qtyLeft" column will be populated:
+#+begin_src emacs-lisp
+(cl-loop for this-rowN from 2 while (progn (goto-table table-name) (org-table-goto-line this-rowN))
+	 for this-row = (current-table-row) then (current-table-row) do
+  (cl-flet((c(column-name) (when(i column-name)(nth(i column-name)this-row))))
+#+end_src
+The idea is to get the final table as close to that is provided by that trader, as possible. So we do not merge table rows "acquired" is defined by the trader:
+#+begin_src emacs-lisp
+  (unless(or(not(non-empty(c "date"))) (non-empty (c "acquired")) (non-empty(c "pIDs")))
+    (if-let((same-date-lineN(cdr(cl-find (c "date") processed-dates :key #'car :test #'string-equal))))
+      (let((same-date-row(org-table-get-remote-range table-name (format "@%d$1..@%d$>" same-date-lineN same-date-lineN))))
+	(dolist(colName(cons "qty"(cons "qtyLeft" additive-col-names)))
+	  (when-let((col-i(i colName)))
+	    (replace-table-cell table-name same-date-lineN (1+ col-i)
+(let((sum(+
+	  (string-to-number(nth col-i same-date-row))
+	  (string-to-number(nth col-i this-row)))))
+  (if(member col-i (mapcar #'i asset-col-names)) (asset-to-string sum) (USD-to-string sum))))))
+	(org-table-goto-line this-rowN) (cut-line) (cl-decf this-rowN))
+#+end_src
+← evaluated if we have previously encountered row with the same date in this table.
+Otherwise:
+#+begin_src emacs-lisp
+      (push (cons (c "date") this-rowN) processed-dates)))))))))
+#+end_src
+← =merge-rows= and =(cl-labels...)= ends here.
+
+** Shrink tables by merging the rows
+Simplifying the tables merging indistinguishable (for tax authorities) rows:
+#+begin_src emacs-lisp :padline yes
+(clog :info "Merging rows of buy table")  (merge-rows  "buy")
+(clog :info "Merging rows of sell table") (merge-rows "sell")
+#+end_src
+
+** loop over the sell table
+#+begin_src emacs-lisp :padline yes
+(cl-loop for sell-row-number from 2
+         while (progn (goto-table "sell") (org-table-goto-line sell-row-number))
+	 for sell-row = (current-table-row) then (current-table-row) do
+(cl-flet((s(column-name)(nth(is column-name)sell-row))
+	 (replace-sell-cell(col-name str)
+	   (replace-table-cell "sell" sell-row-number (1+(is col-name)) str)))
+(when(non-empty(s "date"))
+(let((sell-remain  (string-to-asset(s "qtyLeft")))
+     (sell-amount  (string-to-asset(s "qty")))
+     (sell-date    (encode-date(s "date")))
+     (acquired-date(encode-date(s "acquired")))
+     (sell-gain    (string-to-number(or(s "gain") "0")))
+     (sell-USD     (string-to-number(s "USD")))
+     (sell-N       (string-to-number(s "N"))))
+(when(and(< 0 sell-remain) sell-date)
+#+end_src
+
+#+begin_src emacs-lisp :padline yes
+(clog :info "sell table> row %d, N=%s, date= %s" sell-row-number (s "N") (format-time "%Y-%m-%d" sell-date))
+#+end_src
+
+** Assign "acquired" date where it is empty
+#+begin_src emacs-lisp :padline yes
+(unless acquired-date
+(when-let((buy-sell-time-diff; ← non-positive
+#+end_src
+After we reduced the buy table size, all buy dates became unique there:
+#+begin_src emacs-lisp
+  (cl-loop for buy-date   in (mapcar #'encode-date     (col "buy" (1+(ib "date"))))
+	   for buy-remain in (mapcar #'string-to-asset (col "buy" (1+(ib "qtyLeft"))))
+when (and
+      (not(asset-zero-p buy-remain))
+      (or (time-less-p buy-date sell-date) (time-equal-p sell-date buy-date)))
+maximize
+(time-subtract buy-date sell-date))))
+#+end_src
+
+#+begin_src emacs-lisp :padline yes
+(setf acquired-date(time-add sell-date buy-sell-time-diff))
+(replace-table-cell "sell" sell-row-number (1+(is "acquired"))
+		    (setf(nth (is "acquired") sell-row)
+			 (format-time "%Y-%m-%d" acquired-date)))))
+#+end_src
+
+*** Trying to marry "acquired" date with the sales date
+#+begin_src emacs-lisp :padline yes
+(when acquired-date
+  (cl-loop for buy-row-number from 2
+         while (progn (goto-table "buy") (and (org-table-goto-line buy-row-number) (not(asset-zero-p sell-remain))))
+	 for buy-row = (current-table-row) then (current-table-row) do
+(cl-flet((b(column-name)(nth(ib column-name)buy-row)))
+(when(non-empty(b "date"))
+(let((buy-remain(string-to-asset (b "qtyLeft")))
+     (buy-date  (encode-date     (b "date")))
+     (buy-amount(string-to-asset (b "qty")))
+     (buy-USD   (string-to-number(b "USD")))
+     (buy-N     (string-to-number(b "N"))))
+#+end_src
+← this should be accelerated by reading the looping over table's rows.
+
+#+begin_src emacs-lisp
+(unless(asset-zero-p buy-remain)
+(if(not buy-date) (error (format "buy-remain= %s, buy-N= %d, ib(date)= %d, b(date)= %s: missing date value @ table= %s, row= %d" buy-remain buy-N (ib "date") (b "date") "buy" buy-row-number))
+(when(time-equal-p acquired-date buy-date)
+(cl-labels((replace-buy-cell(col-name str)
+	     (replace-table-cell "buy" buy-row-number (1+(ib col-name)) str))
+	   (append-buy-row(col-name str)
+	     (replace-buy-cell col-name  (concat (b col-name) " " str)))
+	   (append-sell-row(col-name str)
+	     (let((new-value(concat (s col-name) " " str)))
+	       (replace-sell-cell col-name new-value))))
+  (let*(( buy-pIDs(or(b "pIDs") ""))
+	(sell-pIDs(or(s "pIDs") ""))
+	( buy-Npids(length(split-string  buy-pIDs)))
+	(sell-Npids(length(split-string sell-pIDs))))
+
+    (when(<  buy-Npids 4) (append-buy-row  "pIDs" (if(=  buy-Npids 3) "…" (number-to-string sell-N))))
+    (when(< sell-Npids 4) (append-sell-row "pIDs" (if(= sell-Npids 3) "…" (number-to-string  buy-N))))
+#+end_src
+
+#+begin_src emacs-lisp
+(let((prev-buy-remain buy-remain) (prev-sell-remain sell-remain)
+     (sell-buy(asset-round(- sell-remain buy-remain))))
+  (if(< 0 sell-buy)
+      (progn
+	(replace-buy-cell  "qtyLeft" (asset-to-string(setf buy-remain 0)))
+	(replace-sell-cell "qtyLeft" (asset-to-string(setf sell-remain sell-buy))))
+      (replace-buy-cell  "qtyLeft" (asset-to-string (setf buy-remain(- sell-buy))))
+      (replace-sell-cell "qtyLeft" (asset-to-string(setf sell-remain 0))))
+  (setf(nth(is "qtyLeft") sell-row) sell-remain)
+(let((sold-for  (* sell-USD (/ (- prev-sell-remain sell-remain) sell-amount)))
+     (bought-for(*  buy-USD (/ (- prev-buy-remain buy-remain) buy-amount))))
+         (replace-sell-cell "gain" (USD-to-string(setf sell-gain (+ sell-gain(- sold-for bought-for)))))))
+))))))))))
+#+end_src
+← =(when acquired-date...)= ends here.
+
+*** Trying to fix non-married sell columns
+When the buy-table loop is over,
+#+begin_src emacs-lisp :padline yes
+(unless(or(asset-zero-p sell-remain) (not acquired-date))
+(if(asset-zero-p (- sell-amount sell-remain))
+    (replace-table-cell "sell" sell-row-number (1+(is "acquired"))
+			(format-time "!%Y-%m-%d" (encode-date(s "acquired"))))
+#+end_src
+← We tried to find a purchase on supplied "acquired date", but we failed, so we marked that date as invalid with exclamation mark.
+
+Next, we look for sell-rows with positive "qtyLeft" values and non-empty "acquired" column.
+Purchases on "acquired" date cannot fully absorb the sell amount of such a row, so we
+split it between 2 rows: old and new.
+- the "old" row will have zero "qtyLeft" column and accordingly adjusted value in the asset (e.g., "BTC") column
+- the "new" row will contain residues from the "old" one; later we will try to assign another "acquired" date for it
+- some ("additive") columns will be proportionally divided between "old" and "new" rows
+#+begin_src emacs-lisp
+(let((prop-coeff (/ sell-remain sell-amount)) (new-sell-row(cl-copy-list sell-row)))
+  (replace-table-cell "sell" sell-row-number (1+(is "qty")) (asset-to-string (- sell-amount sell-remain)))
+  (setf(nth (is "qty") new-sell-row) (asset-to-string sell-remain))
+  (replace-table-cell "sell" sell-row-number (1+(is "qtyLeft")) "0"); (asset-to-string(setf sell-remain 0))
+#+end_src
+
+Additive columns (such as "USD", "gain") must be proportionally divided between old and new row:
+(PDC=proportionally divided column)
+#+begin_src emacs-lisp
+(dolist(PDC-name additive-col-names)
+(when-let((i(is PDC-name)))
+(let((PDC(s PDC-name)))
+  (when(non-empty PDC)
+    (replace-table-cell "sell" sell-row-number (1+ i) (USD-to-string (* (- 1 prop-coeff) (string-to-number PDC))))
+    (setf(nth i new-sell-row) (USD-to-string (* prop-coeff (string-to-number PDC))))))))
+(push new-sell-row new-sell-rows)
+))))))))
+#+end_src
+← main loop over sell table ends here.
+
+Finally, we add our newly created row at the bottom of the table:
+#+begin_src emacs-lisp :padline yes
+ (goto-table "sell") (goto-char(org-table-end)) (forward-line -3)
+ (while(and(< (point) (org-table-end)) (not (org-at-table-hline-p)))
+  (forward-line))
+#+end_src
+Now cursor is right at the beginning of an hline.
+#+begin_src emacs-lisp
+ (let((empty-column-Is (mapcar #'is '("pIDs" "acquired"))))
+(dolist(new-sell-row new-sell-rows)
+(cl-loop for column in new-sell-row for col-number from 0
+do (insert (format "|%s" (if (member col-number empty-column-Is) "" column)))
+finally (insert "|
+"))))
+#+end_src
+
+** Add "TBLFM" lines + sort columns
+#+begin_src emacs-lisp :padline yes
+(append-TBLFM-to  "buy")
+(append-TBLFM-to "sell")
+(sort-table "sell" "date" ?a)
+(setf final-sell-remain (string-to-asset(substring-no-properties(org-table-get-remote-range "sell" (format "@>$%d" (1+ (is "qtyLeft"))))))); 
+)))))
+#+end_src
+← main =(with-temp-file...)= ends here.
+
+#+begin_src emacs-lisp :padline yes
+(with-temp-file(format "%scurrent.status" DN)
+(insert(format "FN0=%s
+" FN0))
+(insert(format "FN1=%s
+" FN1))
+(insert(format "qtyLeft=%f
+" final-sell-remain))
+(insert(format "finished=%s
+" (if(< 0 final-sell-remain) "no" "yes")))
+))))))
+#+end_src
