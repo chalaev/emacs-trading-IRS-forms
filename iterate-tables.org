@@ -1,5 +1,8 @@
 #+STARTUP: overview
 #+PROPERTY: header-args:emacs-lisp :padline no :mkdirp yes :tangle-mode (identity #o660) :tangle generated/iterate-tables.el
+#+TITLE: connecting ("marrying") buys and sales
+#+AUTHOR: Oleg Shalaev
+#+EMAIL:  oleg@chalaev.com
 
 * init
 #+begin_src emacs-lisp

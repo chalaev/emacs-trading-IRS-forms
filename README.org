@@ -52,10 +52,10 @@ The user is supposed to carefully review the content of this "final" file and co
 Suppose one of the assets you have traded is =BTC=.
 1. Create directory =assets/BTC/= and copy [[file:assets/TEST-0/000.org][assets/TEST-0/000.org]] to =assets/BTC/000.org=.
 2. (Optionally) remove the explanations.
-3. You trade agent should provide you with transaction data in the =CSV= format. Converting  =CSV= to org table format is straightforward.
+3. Your trade agent should provide transaction data in the =CSV= format. Converting  =CSV= to org table format is straightforward.
    Replace the tables' content with your transaction data.
 7. Run =./iterate.sh BTC= (or whatever you traded).
-8. Open the last org file =assets/BTC/00X.org= in =assets/BTC/=: make sure the bottom lines are the same as in =BTC/000.org=.
+8. Open the last (most recent) org file =assets/BTC/00X.org= in =assets/BTC/=: make sure the bottom lines are the same as in =BTC/000.org=.
 9. Some "acquired" dates in the sales table in =assets/BTC/00X.org= might start with exclamation mark. For them the code was unable to find the matching buy amount.
    One of the reasons why a date might be incorrect is time zone difference.
    If the discrepancy amount is significant, adjust =assets/BTC/000.org=, then =make clean asset=BTC=, and run the code again.
@@ -65,7 +65,7 @@ Repeat the above steps for every asset you traded.
 Finally:
 - make sure the bottom lines in the final tables are the same as in the original files,
 - make manual adjustments if needed, and
-- try next section to fill the 8949 tax form.
+- try next section to fill the 8949 PDF tax form.
 
 * Filling the IRS form 8949
 This is *not fully automated* in 2026.

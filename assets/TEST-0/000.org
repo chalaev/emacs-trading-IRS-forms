@@ -1,7 +1,8 @@
 #+TITLE: TEST-0 asset used for testing purposes
 #+price-per-unit: 100000
 
-- "price-per-unit" header serves for rounding and should be roughly set to maximal price (in USD) per asset unit; for example, in 2025 BTC reached $120,000 per unit so it is safe to set "price-per-unit: 100000".
+- "price-per-unit" header serves for rounding and should be roughly set to maximal price (in USD) per asset unit
+  here we assume that one unit of TEST-0 in average costed about $100,000 in the specified (2025) year.
 - "USD" column is the dollar trade amount.
 - Columns' order is arbitrary.
 - "date" column is the trade date; trades occurred within the same day are considered indistinguishable, and their rows can be merged.
